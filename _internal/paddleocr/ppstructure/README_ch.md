@@ -53,7 +53,7 @@ PP-StructureV2支持各个模块独立使用或灵活搭配，如，可以单独
 <img src="./docs/table/ppstructure.GIF" width="100%"/>
 
 ### 3.1.1 版面识别返回单字坐标
-下图展示了基于上一节版面分析对文字进行定位的效果， 可参考[文档](return_word_pos.md)。
+下图展示了基于上一节版面分析对文字进行定位的效果， 可参考[文档](./return_word_pos.md)。
 ![show_0_mdf_v2](https://github.com/PaddlePaddle/PaddleOCR/assets/43341135/799450d4-d2c5-4b61-b490-e160dc0f515c)
 
 

@@ -75,4 +75,4 @@ PaddleOCR 由 [PMC](https://github.com/PaddlePaddle/PaddleOCR/issues/12122) 监�
 
 ## 许可证书
 
-本项目的发布受 [Apache License Version 2.0](LICENSE) 许可认证。
+本项目的发布受 [Apache License Version 2.0](./LICENSE) 许可认证。

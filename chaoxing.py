@@ -186,6 +186,8 @@ def get_image(pic_name, driver):
         prompt = "请将下面的答案以类似于A,B,C的格式输出出来：" + answer
         answer = DeepSeekAsk(prompt, temperature)
         answer_list = answer.split(",")
+        # 清空文本
+        f.truncate(0)
 
         index = 0
 
@@ -501,34 +503,35 @@ def start_main_logic(account, password, course_name):
                 driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", button)
                 ActionChains(driver).move_to_element(button).click().perform()
                 print(f"Clicked: {button.text}")
+
+                # 看视频
+                iframe = WebDriverWait(driver, 10).until(
+                    EC.presence_of_element_located((By.TAG_NAME, "iframe"))
+                )
+                driver.switch_to.frame(iframe)
+
+                iframe = WebDriverWait(driver, 10).until(
+                    EC.presence_of_element_located((By.CSS_SELECTOR, ".ans-attach-online"))
+                )
+                driver.switch_to.frame(iframe)
+                print(driver.page_source)
+                start_thread(driver)
+
+                chapter_test = driver.find_elements(By.CSS_SELECTOR, "li[title='章节测验']")
+                if chapter_test != []:
+                    chapter_test[0].click()
+                    pic_name = r'./chaoxing.png'
+                    get_image(pic_name, driver)
+                chapter_test = driver.find_elements(By.CSS_SELECTOR, "li[title='测验']")
+                if chapter_test != []:
+                    pic_name = r'./chaoxing.png'
+                    chapter_test[0].click()
+                    get_image(pic_name, driver)
+                time.sleep(3)
             except Exception as e:
                 print(f"Could not click element: {e}")
 
-    # 看视频
-    iframe = WebDriverWait(driver, 10).until(
-        EC.presence_of_element_located((By.TAG_NAME, "iframe"))
-    )
-    driver.switch_to.frame(iframe)
 
-    iframe = WebDriverWait(driver, 10).until(
-        EC.presence_of_element_located((By.CSS_SELECTOR, ".ans-attach-online"))
-    )
-    driver.switch_to.frame(iframe)
-    print(driver.page_source)
-    start_thread(driver)
-
-    chapter_test = driver.find_elements(By.CSS_SELECTOR, "li[title='章节测验']")
-    if chapter_test != []:
-        chapter_test[0].click()
-        pic_name = r'./chaoxing.png'
-        get_image(pic_name, driver)
-    chapter_test = driver.find_elements(By.CSS_SELECTOR, "li[title='测验']")
-    if chapter_test != []:
-        pic_name = r'./chaoxing.png'
-        chapter_test[0].click()
-        get_image(pic_name, driver)
-
-    time.sleep(1000)
 
 
 # 程序入口

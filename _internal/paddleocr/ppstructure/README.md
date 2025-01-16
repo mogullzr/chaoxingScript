@@ -51,7 +51,7 @@ The figure shows the pipeline of layout analysis + table recognition. The image 
 <img src="docs/table/ppstructure.GIF" width="100%"/>
 
 ### 3.1.1 版面识别返回单字坐标
-The following figure shows the result of layout analysis on single word， please refer to the [doc](return_word_pos.md)。
+The following figure shows the result of layout analysis on single word， please refer to the [doc](./return_word_pos.md)。
 ![show_0_mdf_v2](https://github.com/PaddlePaddle/PaddleOCR/assets/43341135/799450d4-d2c5-4b61-b490-e160dc0f515c)
 
 ### 3.2 Layout recovery

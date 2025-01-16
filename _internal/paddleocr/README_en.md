@@ -5,7 +5,7 @@ English | [简体中文](README.md)
 <p align="center">
 <p align="center">
     <a href="https://discord.gg/z9xaRVjdbD"><img src="https://img.shields.io/badge/Chat-on%20discord-7289da.svg?sanitize=true" alt="Chat"></a>
-    <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202-dfd.svg"></a>
+    <a href="./LICENSE"><img src="https://img.shields.io/badge/license-Apache%202-dfd.svg"></a>
     <a href="https://github.com/PaddlePaddle/PaddleOCR/releases"><img src="https://img.shields.io/github/v/release/PaddlePaddle/PaddleOCR?color=ffa"></a>
     <a href=""><img src="https://img.shields.io/badge/python-3.7+-aff.svg"></a>
     <a href=""><img src="https://img.shields.io/badge/os-linux%2C%20win%2C%20mac-pink.svg"></a>
@@ -83,7 +83,7 @@ PaddleX provides a one-stop full-process high-efficiency development platform fo
 
 If you want to request a new language support, a PR with 1 following files are needed：
 
-- In folder [ppocr/utils/dict](ppocr/utils/dict),
+- In folder [ppocr/utils/dict](./ppocr/utils/dict),
 it is necessary to submit the dict text to this path and name it with `{language}_dict.txt` that contains a list of all characters. Please see the format example from other files in that folder.
 
 If your language has unique elements, please tell me in advance within any way, such as useful links, wikipedia and so on.
@@ -92,4 +92,4 @@ More details, please refer to [Multilingual OCR Development Plan](https://github
 
 ## 📄 License
 
-This project is released under [Apache License Version 2.0](LICENSE).
+This project is released under [Apache License Version 2.0](./LICENSE).
