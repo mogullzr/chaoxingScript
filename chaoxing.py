@@ -1,20 +1,23 @@
+import base64
+import json
 import tkinter as tk
+import urllib
 from io import BytesIO
 from tkinter import messagebox
 import random
 import cv2
-import numpy as np
 import requests
 from selenium.webdriver import ActionChains
 from selenium.webdriver.support import expected_conditions as EC
 from openai import OpenAI
-from paddleocr import PaddleOCR, draw_ocr
 from PIL import Image
 import time
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.wait import WebDriverWait
+
+messages = []
 
 def preprocess_image(img_path):
     """
@@ -32,84 +35,66 @@ def preprocess_image(img_path):
     # 返回预处理后的图片
     return denoised_image
 
-# PaddleOCR初始化
-def OCR(img_name, language):
-    ocr = PaddleOCR(use_angle_cls=True, lang=language)  # 使用中文、英文模型
-    img_path = img_name
-    result = ocr.ocr(img_path, cls=True)
 
-    problem_content = ""
-    boxes = []
-    txts = []
-    scores = []
-    question_boxes = []
-    isQuestion = False
+def get_file_content_as_base64(path, urlencoded=False):
+    """
+    获取文件base64编码
+    :param path: 文件路径
+    :param urlencoded: 是否对结果进行urlencoded
+    :return: base64编码信息
+    """
+    with open(path, "rb") as f:
+        content = base64.b64encode(f.read()).decode("utf8")
+        if urlencoded:
+            content = urllib.parse.quote_plus(content)
+    return content
 
-    for idx in range(len(result)):
-        res = result[idx]
-        for line in res:
-            text = line[1][0]  # 识别到的文本
-            confidence = line[1][1]  # 置信度
-            box = line[0]  # 文本区域框
 
-            boxes.append(box)
-            txts.append(text)
-            scores.append(confidence)
+def get_access_token():
+    """
+    使用 AK，SK 生成鉴权签名（Access Token）
+    :return: access_token，或是None(如果错误)
+    """
+    url = "https://aip.baidubce.com/oauth/2.0/token"
+    API_KEY = "dmQScPAjTvYLfPNVuWTpsMXU"
+    SECRET_KEY = "D9K8Ylz7VM1seGKfgOaewARue6G09aCX"
+    params = {"grant_type": "client_credentials", "client_id": API_KEY, "client_secret": SECRET_KEY}
+    return str(requests.post(url, params=params).json().get("access_token"))
 
-            flag = is_question(text)
-            print(text)
-            if flag:
-                if (problem_content.find("单选题") != -1
-                        or problem_content.find("多选题") != -1
-                        or problem_content.find("判断题") != -1):
-                    if (problem_content.find("单选题") != -1 or problem_content.find("多选题") != -1) and (
-                            problem_content.find("A") != -1 and problem_content.find(
-                        "B") != -1 and problem_content.find("D") != -1):
-                        with open('problem_content.txt', 'a+', encoding='utf-8') as f:
-                            current_content = f.read()
-                            if current_content.find(problem_content) == -1:
-                                f.write(problem_content + "\n----------------------")
 
-                    elif problem_content.find("判断题") != -1:
-                        with open('problem_content.txt', 'a+', encoding='utf-8') as f:
-                            current_content = f.read()
-                            if current_content.find(problem_content) == -1:
-                                f.write(problem_content + "\n----------------------")
-                print(problem_content)
-                problem_content = text + "\n"
-            else:
-                problem_content += text + "\n"
+def OCR(img_name):
+    image_data = get_file_content_as_base64(img_name, True)
+    url = "https://aip.baidubce.com/rest/2.0/ocr/v1/accurate_basic?access_token=" + get_access_token()
 
-        if (problem_content.find("单选题") != -1
-                or problem_content.find("多选题") != -1
-                or problem_content.find("判断题") != -1):
-            if (problem_content.find("单选题") != -1 or problem_content.find("多选题") != -1) and (
-                    problem_content.find("A") != -1 and problem_content.find(
-                "B") != -1 and problem_content.find("D") != -1):
-                with open('problem_content.txt', 'a+', encoding='utf-8') as f:
-                    current_content = f.read()
-                    if current_content.find(problem_content) == -1:
-                        f.write(problem_content + "\n----------------------")
+    # image 可以通过 get_file_content_as_base64("C:\fakepath\1737041982239.jpg",True) 方法获取
+    payload = f'image={image_data}&detect_direction=false&paragraph=false&probability=false&multidirectional_recognize=false'
+    headers = {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Accept': 'application/json'
+    }
 
-            elif problem_content.find("判断题") != -1:
-                with open('problem_content.txt', 'a+', encoding='utf-8') as f:
-                    current_content = f.read()
-                    if current_content.find(problem_content) == -1:
-                        f.write(problem_content + "\n----------------------")
+    response = requests.request("POST", url, headers=headers, data=payload.encode("utf-8"))
 
-    image = Image.open(img_path).convert('RGB')
-    im_show = draw_ocr(image, boxes, txts, scores, font_path='./fonts/simfang.ttf')
-    im_show_cv = np.array(im_show)
-    im_show_cv = cv2.cvtColor(im_show_cv, cv2.COLOR_RGB2BGR)
+    problem_content = response.text
+    parsed_data = json.loads(problem_content)
+    words_value = ""
+    with open("./problem_content.txt", mode="a+", encoding='utf-8') as f:
+        flag = False
+        for words in parsed_data["words_result"]:
+            word_value = words["words"]
+            current_content = f.read()
+            if word_value.find("【单选题】") != -1 or word_value.find("【多选题】") != -1 or word_value.find("【判断题】") != -1 or flag:
+                flag = True
+                f.write(word_value + "\n")
+            if word_value.find("【单选题】") != -1 or word_value.find("【多选题】") != -1 or word_value.find("【判断题】") != -1:
+                prompt = "请你仔细分析一下下面这个问题，step by step：" + word_value
+                temperature = random.choice([0.8, 0.9, 1.0])
+                content = DeepSeekAsk(prompt, temperature)
+                message_2 = dict({"role": "system", "content": content}),
+                messages.append(message_2[0])
 
-    for box in question_boxes:
-        box = np.array(box).astype(int)
-        cv2.polylines(im_show_cv, [box], isClosed=True, color=(0, 0, 255), thickness=2)
 
-    cv2.imwrite('result.jpg', im_show_cv)
-    print("可视化结果已保存为 result.jpg")
-
-    return problem_content
+    return words_value
 
 
 def is_question(text):
@@ -121,12 +106,13 @@ def is_question(text):
 
 def DeepSeekAsk(prompt, temperature):
     api_key = "sk-ecee03845a1b42938fb66bae42694268"
+    message = {"role": "user", "content": prompt}
+    messages.append(message)
+    print(messages)
     client = OpenAI(api_key=api_key, base_url="https://api.deepseek.com")
     response = client.chat.completions.create(
         model="deepseek-chat",
-        messages=[
-            {"role": "user", "content": prompt},
-        ],
+        messages=messages,
         temperature=temperature,
         stream=False
     )
@@ -171,32 +157,36 @@ def get_image(pic_name, driver):
 
     while scroll_height < total_height:
         driver.execute_script(f"window.scrollTo(0, {scroll_height});")
-        time.sleep(0.1)
+        time.sleep(2)
         driver.save_screenshot(pic_name)
         print(f"截图已保存: {pic_name}")
 
-        crop_area = (240, 550, width + 300, total_height - 100)
+        crop_area = (240, 350, width + 300, total_height - 100)
         crop_screenshot(pic_name, crop_area)
-        problem_content = OCR(pic_name, "ch")
-        scroll_height += 300
+        OCR(pic_name)
+        scroll_height += 150
+
 
     with open("./problem_content.txt", mode="r", encoding='utf-8') as f:
         prompt = '''请根据以下题目要求回答问题：
-
-        所有题目的答案必须从选项 A、B、C、D 中选择。
-
-        对于判断题，答案只能是 A 或 B，分别对应题目中的 A（对） 和 B（错）。
-
-        如果题目重复出现，只需回答一次，不要重复回答。
-
-        请严格按照题目编号顺序给出答案。
-
-        最终你给出的答案格式应当类似于下面这样：C,A,A
+        1.不要其他话语，我仅仅需要这些题目的选择答案哟
+        
+        2.所有题目的答案必须从选项 A、B、C、D 中选择。
+        
+        3.对于判断题，答案只能是 A 或 B，分别对应题目中的 A（对） 和 B（错）。
+        
+        4.如果题目重复出现，只需回答一次，不要重复回答。
+        
+        5.请严格按照题目编号顺序给出答案,1,2,3,4这样的题目序号顺序给出选择的答案。
+        最终你给出的答案格式应当类似于下面这样：选项1,选项2,选项3
         \n'''
         prompt += f.read()
-        temperature = random.choice([0.8, 0.9, 1.0])
+        temperature = random.choice([1.0])
+        answer = DeepSeekAsk(prompt, temperature)
+        prompt = "请将下面的答案以类似于A,B,C的格式输出出来：" + answer
         answer = DeepSeekAsk(prompt, temperature)
         answer_list = answer.split(",")
+
         index = 0
 
         iframe = WebDriverWait(driver, 10).until(
@@ -278,11 +268,11 @@ def save_image_from_url(driver, image_url, save_path):
         # 发送HTTP GET请求获取图片内容
         cookies = driver.get_cookies()
         headers = {
-            'User-Agent': 'Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) '
+            'user-Agent': 'Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) '
                           'Chrome/123.0.0.0 Mobile Safari/537.36',
-            'Cookie':  "; ".join([f"{cookie['name']}={cookie['value']}" for cookie in cookies])
+            'Cookie': "; ".join([f"{cookie['name']}={cookie['value']}" for cookie in cookies])
         }
-        response = requests.get(image_url,headers=headers)
+        response = requests.get(image_url, headers=headers)
         response.raise_for_status()  # 检查请求是否成功
 
         # 将图片内容转换为PIL图像对象
@@ -346,7 +336,7 @@ def start(driver):
             confirm_content = (OCR(save_path, 'en')
                                .replace('"', '\\"')
                                .replace("'", "\\'")
-                               .replace("\n", "\\n")) # 转义特殊字符
+                               .replace("\n", "\\n"))  # 转义特殊字符
 
             WebDriverWait(driver, 10).until(
                 EC.presence_of_element_located((By.CLASS_NAME, "yzmInp"))
@@ -514,7 +504,6 @@ def start_main_logic(account, password, course_name):
             except Exception as e:
                 print(f"Could not click element: {e}")
 
-
     # 看视频
     iframe = WebDriverWait(driver, 10).until(
         EC.presence_of_element_located((By.TAG_NAME, "iframe"))
@@ -527,6 +516,7 @@ def start_main_logic(account, password, course_name):
     driver.switch_to.frame(iframe)
     print(driver.page_source)
     start_thread(driver)
+
     chapter_test = driver.find_elements(By.CSS_SELECTOR, "li[title='章节测验']")
     if chapter_test != []:
         chapter_test[0].click()
@@ -535,10 +525,11 @@ def start_main_logic(account, password, course_name):
     chapter_test = driver.find_elements(By.CSS_SELECTOR, "li[title='测验']")
     if chapter_test != []:
         pic_name = r'./chaoxing.png'
-        get_image(pic_name, driver)
         chapter_test[0].click()
+        get_image(pic_name, driver)
 
     time.sleep(1000)
+
 
 # 程序入口
 if __name__ == '__main__':
