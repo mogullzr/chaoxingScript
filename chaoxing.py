@@ -1,5 +1,6 @@
 import base64
 import json
+import os
 import tkinter as tk
 import urllib
 from io import BytesIO
@@ -78,7 +79,8 @@ def OCR(img_name):
     problem_content = response.text
     parsed_data = json.loads(problem_content)
     words_value = ""
-    with open("./problem_content.txt", mode="a+", encoding='utf-8') as f:
+    with open("problem_content.txt", mode="a+", encoding='utf-8') as f:
+        f.seek(0)
         flag = False
         for words in parsed_data["words_result"]:
             word_value = words["words"]
@@ -112,7 +114,7 @@ def DeepSeekAsk(prompt, temperature):
     client = OpenAI(api_key=api_key, base_url="https://api.deepseek.com")
     response = client.chat.completions.create(
         model="deepseek-chat",
-        messages=messages,
+        messages=[message],
         temperature=temperature,
         stream=False
     )
@@ -147,12 +149,16 @@ def crop_screenshot(pic_name, crop_area):
 
 
 def get_image(pic_name, driver):
+    if os.path.exists("problem_content.txt"):
+        os.remove("problem_content.txt")
+        os.mkdir("problem_content.txt")
+
     width = driver.execute_script("return document.documentElement.scrollWidth")
     total_height = driver.execute_script("return document.documentElement.scrollHeight")
     print(width, total_height)
     driver.set_window_size(width, total_height)
 
-    scroll_height = 0
+    scroll_height = -150
     problem_content_all = ""
 
     while scroll_height < total_height:
@@ -164,7 +170,7 @@ def get_image(pic_name, driver):
         crop_area = (240, 350, width + 300, total_height - 100)
         crop_screenshot(pic_name, crop_area)
         OCR(pic_name)
-        scroll_height += 150
+        scroll_height += 300
 
 
     with open("./problem_content.txt", mode="r", encoding='utf-8') as f:
@@ -310,6 +316,10 @@ def start(driver):
         }
         """
     driver.execute_script(disable_pause_script)
+
+    # 设置video的倍速为4
+    driver.execute_script("arguments[0].playbackRate = 4;", video[0])
+
     times = ""
     # 注意，容易出现突发情况，就是学习通要求验证码验证逻辑
     while True:
@@ -335,7 +345,7 @@ def start(driver):
             time.sleep(2)
 
             # 2.开始识别图片中的字母
-            confirm_content = (OCR(save_path, 'en')
+            confirm_content = (OCR(save_path)
                                .replace('"', '\\"')
                                .replace("'", "\\'")
                                .replace("\n", "\\n"))  # 转义特殊字符
@@ -515,8 +525,9 @@ def start_main_logic(account, password, course_name):
                 )
                 driver.switch_to.frame(iframe)
                 print(driver.page_source)
-                start_thread(driver)
-
+                # start_thread(driver)
+                time.sleep(1)
+                driver.switch_to.default_content()
                 chapter_test = driver.find_elements(By.CSS_SELECTOR, "li[title='章节测验']")
                 if chapter_test != []:
                     chapter_test[0].click()
@@ -530,9 +541,6 @@ def start_main_logic(account, password, course_name):
                 time.sleep(3)
             except Exception as e:
                 print(f"Could not click element: {e}")
-
-
-
 
 # 程序入口
 if __name__ == '__main__':
