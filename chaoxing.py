@@ -50,7 +50,6 @@ def get_file_content_as_base64(path, urlencoded=False):
             content = urllib.parse.quote_plus(content)
     return content
 
-
 def get_access_token():
     """
     使用 AK，SK 生成鉴权签名（Access Token）
@@ -89,11 +88,12 @@ def OCR(img_name):
                 flag = True
                 f.write(word_value + "\n")
             if word_value.find("【单选题】") != -1 or word_value.find("【多选题】") != -1 or word_value.find("【判断题】") != -1:
-                prompt = "请你仔细分析一下下面这个问题，step by step：" + word_value
-                temperature = random.choice([0.8, 0.9, 1.0])
-                content = DeepSeekAsk(prompt, temperature)
-                message_2 = dict({"role": "system", "content": content}),
-                messages.append(message_2[0])
+                print(1)
+                # prompt = "请你仔细分析一下下面这个问题，step by step：" + word_value
+                # temperature = random.choice([0.8, 0.9, 1.0])
+                # content = DeepSeekAsk(prompt, temperature)
+                # message_2 = dict({"role": "system", "content": content}),
+                # messages.append(message_2[0])
 
 
     return words_value
@@ -105,6 +105,17 @@ def is_question(text):
         return True
     return False
 
+def remove_line_with_string(file_path, target_string):
+    # 读取文件内容
+    with open(file_path, 'r', encoding='utf-8') as file:
+        lines = file.readlines()
+
+    # 过滤掉包含目标字符串的行
+    filtered_lines = [line for line in lines if target_string not in line]
+
+    # 将过滤后的内容写回文件
+    with open(file_path, 'w', encoding='utf-8') as file:
+        file.writelines(filtered_lines)
 
 def DeepSeekAsk(prompt, temperature):
     api_key = "sk-ecee03845a1b42938fb66bae42694268"
@@ -149,10 +160,6 @@ def crop_screenshot(pic_name, crop_area):
 
 
 def get_image(pic_name, driver):
-    if os.path.exists("problem_content.txt"):
-        os.remove("problem_content.txt")
-        os.mkdir("problem_content.txt")
-
     width = driver.execute_script("return document.documentElement.scrollWidth")
     total_height = driver.execute_script("return document.documentElement.scrollHeight")
     print(width, total_height)
@@ -170,7 +177,7 @@ def get_image(pic_name, driver):
         crop_area = (240, 350, width + 300, total_height - 100)
         crop_screenshot(pic_name, crop_area)
         OCR(pic_name)
-        scroll_height += 300
+        scroll_height += 100
 
 
     with open("./problem_content.txt", mode="r", encoding='utf-8') as f:
@@ -184,12 +191,17 @@ def get_image(pic_name, driver):
         4.如果题目重复出现，只需回答一次，不要重复回答。
         
         5.请严格按照题目编号顺序给出答案,1,2,3,4这样的题目序号顺序给出选择的答案。
-        最终你给出的答案格式应当类似于下面这样：选项1,选项2,选项3
+        最终你给出的答案格式应当类似于下面这样：选项1,选项2,选项3。注意选项中可能出现多选题的情况，我需要你使用'|'分隔开
+        
+        6.注意：请你忽略我的答案，这可能是错误答案哟；同时请你注意每道题目开头的【】
+        里面内容判断这道题目是什么类型的题目
         \n'''
+        remove_line_with_string("./problem_content.txt", "我的答案：")
+        remove_line_with_string("./problem_content.txt", "我的答案:")
         prompt += f.read()
-        temperature = random.choice([1.0])
+        temperature = random.choice([1.3])
         answer = DeepSeekAsk(prompt, temperature)
-        prompt = "请将下面的答案以类似于A,B,C的格式输出出来：" + answer
+        prompt = "请将这道题目的答案以A,B,C这样的字符串的格式输出出来，注意不要其他多余的内容，只要选择答案，不需要其他题目描述等内容的：" + answer
         answer = DeepSeekAsk(prompt, temperature)
         answer_list = answer.split(",")
         # 清空文本
@@ -231,11 +243,12 @@ def get_image(pic_name, driver):
 
             for option in options:
                 option_value = option.find_element(By.CSS_SELECTOR, "span.num_option").text.strip()
-                if option_value == correct_answer:
-                    driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", option)
-                    option.click()
-                    print(f"已点击选项: {option_value}")
-                    break
+                for answer in correct_answer:
+                    if option_value == answer:
+                        driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", option)
+                        option.click()
+                        print(f"已点击选项: {option_value}")
+                        break
 
 
 def login(driver, url, phone, pwd):
@@ -508,18 +521,18 @@ def start_main_logic(account, password, course_name):
         for li in list_items:
             try:
                 button = WebDriverWait(li, 10).until(
-                    EC.presence_of_element_located((By.CSS_SELECTOR, "div.posCatalog_select, span.posCatalog_name"))
+                    EC.element_to_be_clickable((By.CSS_SELECTOR, "div.posCatalog_select, span.posCatalog_name"))
                 )
                 driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", button)
                 ActionChains(driver).move_to_element(button).click().perform()
                 print(f"Clicked: {button.text}")
-
+                time.sleep(1)
                 # 看视频
                 iframe = WebDriverWait(driver, 10).until(
                     EC.presence_of_element_located((By.TAG_NAME, "iframe"))
                 )
                 driver.switch_to.frame(iframe)
-
+                time.sleep(1)
                 iframe = WebDriverWait(driver, 10).until(
                     EC.presence_of_element_located((By.CSS_SELECTOR, ".ans-attach-online"))
                 )
@@ -532,11 +545,18 @@ def start_main_logic(account, password, course_name):
                 if chapter_test != []:
                     chapter_test[0].click()
                     pic_name = r'./chaoxing.png'
+                    if os.path.exists("problem_content.txt"):
+                        messages = []
+                        os.remove("problem_content.txt")
+                        os.chdir("problem_content.txt")
                     get_image(pic_name, driver)
                 chapter_test = driver.find_elements(By.CSS_SELECTOR, "li[title='测验']")
                 if chapter_test != []:
                     pic_name = r'./chaoxing.png'
                     chapter_test[0].click()
+                    if os.path.exists("problem_content.txt"):
+                        os.remove("problem_content.txt")
+                        os.chdir("problem_content.txt")
                     get_image(pic_name, driver)
                 time.sleep(3)
             except Exception as e:
